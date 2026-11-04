@@ -304,6 +304,11 @@ class MarkdownRenderer(HTMLRenderer):
         )
 
     def __call__(self, document: Document) -> MarkdownOutput:
+        for page in document.pages:
+            for b in page.structure_blocks(document):
+                if getattr(b, "ignore_for_output", False):
+                    b.ignore_for_output = False
+                    
         document_output = document.render(self.block_config)
         full_html, images = self.extract_html(document, document_output)
         markdown = self.md_cls.convert(full_html)
