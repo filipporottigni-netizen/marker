@@ -42,6 +42,7 @@ class IgnoreTextProcessor(BaseProcessor):
     ] = 90
 
     def __call__(self, document: Document):
+        return
         first_blocks = []
         last_blocks = []
         for page in document.pages:
@@ -90,6 +91,6 @@ class IgnoreTextProcessor(BaseProcessor):
             return
 
         for t, b in zip(text, blocks):
-            # Check against all common elements
-            if any(fuzz.ratio(t, common_element) > self.text_match_threshold for common_element in common):
+            # Check against all common elements and only ignore if it contains actual words/letters (protect section numbers)
+            if any(fuzz.ratio(t, common_element) > self.text_match_threshold for common_element in common) and not re.match(r'^[\d\.\s]+$', t):
                 b.ignore_for_output = True
