@@ -23,6 +23,10 @@ def escape_dollars(text):
 def cleanup_text(full_text):
     full_text = re.sub(r"\n{3,}", "\n\n", full_text)
     full_text = re.sub(r"(\n\s){3,}", "\n\n", full_text)
+    
+    # Add space between numbering (e.g., 3.1) and immediately following letters
+    full_text = re.sub(r"(\d+(?:\.\d+)+)([A-Za-z])", r"\1 \2", full_text)
+    
     return full_text.strip()
 
 
