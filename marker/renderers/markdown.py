@@ -20,7 +20,7 @@ _HYPHENS_SPLIT_RE = regex.compile(rf"[{_HYPHENS}]\s?$")
 
 
 _C0_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
-
+_EXPLICIT_LIST_MARKER_RE = re.compile(r"^\s*(?:\(?[0-9]+\)|\(?[a-zA-Z]\))\s+")
 
 def escape_dollars(text):
     return text.replace("$", r"\$")
@@ -33,7 +33,31 @@ def cleanup_text(full_text):
     
     # Add space between numbering (e.g., 3.1) and immediately following letters
     full_text = re.sub(r"(\d+(?:\.\d+)+)([A-Za-z])", r"\1 \2", full_text)
-    
+
+    # Demote false headings like "## b) Concerning..." back into list items
+    full_text = re.sub(
+        r"(?m)^#{1,6}\s+\*{0,2}([a-z]\)\s+[^\n]+?)\*{0,2}\s*$",
+        r"- \1",
+        full_text,
+    )
+
+    # Indent "- 1)" / "- 4)" as sub-items when following "- a)" or a prior "  - N)" item
+    prev = None
+    while prev != full_text:
+        prev = full_text
+        full_text = re.sub(
+            r"(?m)(^(?:-[ \t]+[a-z]\)|  -[ \t]+\d+\)).*)\n+-[ \t]+(\d+\)\s+)",
+            r"\1\n  - \2",
+            full_text,
+        )
+
+    # Collapse blank lines between consecutive alphanumeric list items
+    full_text = re.sub(
+        r"(?m)(^[ \t]*-\s+(?:[a-z]\)|\d+\)).*)\n\n+(?=[ \t]*-\s+(?:[a-z]\)|\d+\)))",
+        r"\1\n",
+        full_text,
+    )
+
     return full_text.strip()
 
 
@@ -94,6 +118,14 @@ class Markdownify(MarkdownConverter):
         else:
             return text
 
+    def convert_li(self, el, text, parent_tags):
+        parent = el.parent
+        if parent is not None and parent.name == "ol":
+            first_li = parent.find("li", recursive=False)
+            if first_li and _EXPLICIT_LIST_MARKER_RE.match(first_li.get_text()):
+                parent.name = "ul"
+        return super().convert_li(el, text, parent_tags)
+    
     def convert_p(self, el, text, parent_tags):
         has_continuation = el.has_attr("class") and "has-continuation" in el["class"]
         if has_continuation:
